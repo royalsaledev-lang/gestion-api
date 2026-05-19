@@ -5,13 +5,12 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
-   "scripts": {
- "prebuild": "rm -rf dist",
- "build": "prisma generate --schema=prisma/schema.prisma && nest build",
- "start": "node dist/src/main.js",
- "start:prod": "node dist/src/main.js",
- "postinstall": "prisma generate --schema=prisma/schema.prisma"
- },
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/src/main.js",
+    "start:prod": "node dist/src/main.js",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma"
+  },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.4",
     "@nestjs/common": "^11.1.21",
