@@ -4,6 +4,10 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "outputPath": "dist",
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      { "include": "templates/**/*.hbs", "outDir": "dist/src/" }
+    ],
+    "watchAssets": true
   }
 }
