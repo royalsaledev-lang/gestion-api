@@ -7,17 +7,20 @@
   "license": "UNLICENSED",
 "scripts": {
   "start:debug": "nest start --debug --watch",
+
   "postinstall": "prisma generate --schema=prisma/schema.prisma",
 
   "prisma:init": "npx prisma init",
 
-  "build": "rm -rf dist && prisma generate --schema=prisma/schema.prisma && nest build && copyfiles -u 1 prisma/**/* dist/prisma",
+  "build": "rm -rf dist && prisma generate --schema=prisma/schema.prisma && nest build && copyfiles -u 1 prisma/**/* dist/",
+
+  "migrate:prod": "prisma migrate deploy --schema=prisma/schema.prisma",
 
   "start": "node dist/src/main.js",
 
   "start:dev": "nest start --watch",
 
-  "start:prod": "node dist/src/main.js",
+  "start:prod": "npm run migrate:prod && node dist/src/main.js",
 
   "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
 },
