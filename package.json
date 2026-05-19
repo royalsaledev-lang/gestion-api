@@ -7,8 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "start": "node dist/src/main.js",
-    "start:prod": "node dist/src/main.js",
+    "start": "node dist/dist/src/main.js",
+    "start:prod": "node dist/dist/src/main.js",
     "postinstall": "prisma generate --schema=prisma/schema.prisma"
   },
   "dependencies": {
