@@ -67,3 +67,23 @@ bootstrap();
 //   "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
 //   "test:e2e": "jest --config ./test/jest-e2e.json"
 // },
+
+// "scripts": {
+//   "start:debug": "nest start --debug --watch",
+
+//   "postinstall": "prisma generate --schema=prisma/schema.prisma",
+
+//   "prisma:init": "npx prisma init",
+
+//   "build": "prisma generate --schema=prisma/schema.prisma && nest build && cp -R prisma dist/",
+
+//   "migrate:prod": "prisma migrate deploy --schema=prisma/schema.prisma",
+
+//   "start": "node dist/src/main.js",
+
+//   "start:dev": "nest start --watch",
+
+//   "start:prod": "npm run migrate:prod && node dist/src/main.js",
+
+//   "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
+// },
