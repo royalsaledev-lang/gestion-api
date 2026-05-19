@@ -1,0 +1,77 @@
+# =========================
+# BUILD OUTPUT (important)
+# =========================
+dist/
+build/
+
+# =========================
+# DEPENDENCIES
+# =========================
+node_modules/
+
+# =========================
+# LOGS
+# =========================
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# =========================
+# OS FILES
+# =========================
+.DS_Store
+
+# =========================
+# TESTS
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# IDE
+# =========================
+.idea/
+*.sublime-workspace
+.c9/
+
+# VSCode (garde config utile)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# =========================
+# ENV FILES (IMPORTANT)
+# =========================
+.env
+.env.*
+
+# =========================
+# TEMP FILES
+# =========================
+.temp/
+.tmp/
+
+# =========================
+# RUNTIME
+# =========================
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# REPORTS
+# =========================
+report.*.json
+
+# =========================
+# PRISMA (IMPORTANT FIX)
+# =========================
+generated/prisma/
+prisma/migrations/

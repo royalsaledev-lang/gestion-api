@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider  = "mysql"
+}
+
+model User {
+  id               String         @id @default(uuid())
+  name             String
+  email            String         @unique
+  phone            String?
+  password         String?
+  role             UserRole
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  freelancerId     String?        @map("freelancer_id")
+  refreshToken     String?        @map("refresh_token")
+  resetToken       String?        @map("reset_token")
+  resetTokenExpiry DateTime?      @map("reset_token_expiry")
+  activityLogs     ActivityLog[]
+  comments         Comment[]
+  ownedFreelancer  Freelancer?    @relation("FreelancerOwner")
+  notifications    Notification[]
+  managedProjects  Project[]      @relation("ProjectManager")
+  tasksAssigned    Task[]         @relation("TaskAssignee")
+  tasksCreated     Task[]         @relation("TaskCreator")
+  freelancer       Freelancer?    @relation("FreelancerMembers", fields: [freelancerId], references: [id])
+
+  @@map("users")
+}
+
+
+model Client {
+  id        String       @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  status    ClientStatus
+  createdAt DateTime     @default(now()) @map("created_at")
+  projects  Project[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String              @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus       @default(UPCOMING)
+  priority    Priority
+  startDate   DateTime?           @map("start_date")
+  deadline    DateTime?
+  clientId    String?             @map("client_id")
+  managerId   String?             @map("manager_id")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  payments    Payment[]
+  freelancers ProjectFreelancer[]
+  client      Client?             @relation(fields: [clientId], references: [id])
+  manager     User?               @relation("ProjectManager", fields: [managerId], references: [id])
+  tasks       Task[]
+
+  @@map("projects")
+}
+
+model Task {
+  id                       String     @id @default(uuid())
+  title                    String
+  description              String?
+  status                   TaskStatus @default(DRAFT)
+  priority                 Priority
+  startDate                DateTime?  @map("start_date")
+  deadline                 DateTime?
+  projectId                String     @map("project_id")
+  createdById              String     @map("created_by_id")
+  assignedToId             String?    @map("assigned_to_id")
+  validatedByPrestataireId String?    @map("validated_by_prestataire_id")
+  validatedByManagerId     String?    @map("validated_by_manager_id")
+  createdAt                DateTime   @default(now()) @map("created_at")
+  comments                 Comment[]
+  assignedTo               User?      @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  createdBy                User       @relation("TaskCreator", fields: [createdById], references: [id])
+  project                  Project    @relation(fields: [projectId], references: [id])
+
+  @@map("tasks")
+}
+
+model Freelancer {
+  id        String              @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  specialty String?
+  userId    String              @unique
+  status    FreelancerStatus    @default(ACTIVE)
+  createdAt DateTime            @default(now()) @map("created_at")
+  user      User                @relation("FreelancerOwner", fields: [userId], references: [id])
+  projects  ProjectFreelancer[]
+  members   User[]              @relation("FreelancerMembers")
+
+  @@map("freelancers")
+}
+
+model ProjectFreelancer {
+  id           String     @id @default(uuid())
+  projectId    String     @map("project_id")
+  freelancerId String     @map("freelancer_id")
+  freelancer   Freelancer @relation(fields: [freelancerId], references: [id])
+  project      Project    @relation(fields: [projectId], references: [id])
+
+  @@map("project_freelancers")
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  amount    Float
+  status    PaymentStatus @default(NOT_PAID)
+  projectId String        @map("project_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  project   Project       @relation(fields: [projectId], references: [id])
+
+  @@map("payments")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  taskId    String   @map("task_id")
+  authorId  String   @map("author_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  author    User     @relation(fields: [authorId], references: [id])
+  task      Task     @relation(fields: [taskId], references: [id])
+
+  @@map("comments")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  userId     String?  @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  read      Boolean  @default(false)
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EXECUTANT
+  PRESTATAIRE
+}
+
+enum ClientStatus {
+  ACTIVE
+  IN_PROGRESS
+  TO_FOLLOW
+  ISSUE
+  INACTIVE
+}
+
+enum ProjectStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  CANCELLED
+}
+
+enum TaskStatus {
+  DRAFT
+  VALIDATION_REQUESTED
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PaymentStatus {
+  NOT_PAID
+  ADVANCE
+  PAID
+}
+
+enum FreelancerStatus {
+  ACTIVE
+  INACTIVE
+}
