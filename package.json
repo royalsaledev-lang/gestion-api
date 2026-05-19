@@ -12,7 +12,7 @@
 
   "prisma:init": "npx prisma init",
 
-  "build": "prisma generate --schema=prisma/schema.prisma && nest build && mkdir -p dist/prisma && cp -R prisma/* dist/prisma/",
+  "build": "prisma generate --schema=prisma/schema.prisma && nest build && node -e \"require('fs').cpSync('prisma', 'dist/prisma', { recursive: true, force: true })\"",
 
   "migrate:prod": "prisma migrate deploy --schema=prisma/schema.prisma",
 
