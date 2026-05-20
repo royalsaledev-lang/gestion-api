@@ -1,12 +1,22 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  INestApplication,
+} from '@nestjs/common';
+
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { PrismaClient } from '../../generated/prisma/client';
 
 function getDbConfigFromUrl() {
   const raw = process.env.DATABASE_URL;
-  if (!raw) throw new Error('DATABASE_URL is not set');
+
+  if (!raw) {
+    throw new Error('DATABASE_URL is not set');
+  }
 
   const u = new URL(raw);
+
   return {
     host: u.hostname,
     port: u.port ? Number(u.port) : 3306,
@@ -26,20 +36,91 @@ export class PrismaService
 
     const adapter = new PrismaMariaDb({
       ...cfg,
-      connectionLimit: 5,
+
+      // IMPORTANT
+      connectionLimit: 20,
+
+      // temps max d'attente d'une connexion
+      connectTimeout: 10000,
+
+      // garder les connexions actives
+      idleTimeout: 60000,
     });
 
-    super({ adapter, log: ['query', 'info', 'warn', 'error'] });
+    super({
+      adapter,
+
+      log:
+        process.env.NODE_ENV === 'development'
+          ? ['query', 'info', 'warn', 'error']
+          : ['warn', 'error'],
+    });
   }
 
   async onModuleInit() {
-    await this.$connect();
+    try {
+      await this.$connect();
+
+      console.log('✅ Database connected');
+    } catch (error) {
+      console.error('❌ Database connection failed', error);
+      throw error;
+    }
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
   }
+
+  async enableShutdownHooks(app: INestApplication) {
+    process.on('beforeExit', async () => {
+      await app.close();
+    });
+  }
 }
+
+// import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+// import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+// import { PrismaClient } from '../../generated/prisma/client';
+
+// function getDbConfigFromUrl() {
+//   const raw = process.env.DATABASE_URL;
+//   if (!raw) throw new Error('DATABASE_URL is not set');
+
+//   const u = new URL(raw);
+//   return {
+//     host: u.hostname,
+//     port: u.port ? Number(u.port) : 3306,
+//     user: decodeURIComponent(u.username),
+//     password: decodeURIComponent(u.password),
+//     database: u.pathname.replace(/^\//, ''),
+//   };
+// }
+
+// @Injectable()
+// export class PrismaService
+//   extends PrismaClient
+//   implements OnModuleInit, OnModuleDestroy
+// {
+//   constructor() {
+//     const cfg = getDbConfigFromUrl();
+
+//     const adapter = new PrismaMariaDb({
+//       ...cfg,
+//       connectionLimit: 5,
+//     });
+
+//     super({ adapter, log: ['query', 'info', 'warn', 'error'] });
+//   }
+
+//   async onModuleInit() {
+//     await this.$connect();
+//   }
+
+//   async onModuleDestroy() {
+//     await this.$disconnect();
+//   }
+// }
 
 // import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 // import { PrismaMariaDb } from '@prisma/adapter-mariadb';
