@@ -74,7 +74,6 @@ export class ClientsService extends BaseService {
         ...(query.search && {
           name: {
             contains: query.search,
-            
           },
         }),
 
@@ -89,6 +88,26 @@ export class ClientsService extends BaseService {
 
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+  }
+  async findOne(id: string) {
+    return this.prisma.client.findUnique({
+      where: {
+        id,
+      },
+
+      include: {
+        projects: {
+          include: {
+            manager: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
   }

@@ -17,6 +17,7 @@ export const Events = {
   TASK_ASSIGNED: 'task.assigned',
   TASK_UPDATED: 'task.updated',
   TASK_COMPLETED: 'task.completed',
+  TASK_VALIDATED_REQUESTED: 'task.validated.requested',
 
   PAYMENT_RECEIVED: 'payment.received',
 

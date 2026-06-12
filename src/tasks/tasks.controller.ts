@@ -63,7 +63,7 @@ export class TasksController {
   // ASSIGN
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post(':id/assign')
-  @Roles('ADMIN', 'MANAGER', 'PRESTATAIRE')
+  @Roles('ADMIN', 'MANAGER')
   assign(
     @Param('id') id: string,
     @Body() dto: AssignTaskDto,
@@ -80,22 +80,11 @@ export class TasksController {
     return this.tasksService.completeTask(id, user.userId);
   }
 
-  // SUBMIT (executant ou prestataire)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Post(':id/submit')
-  @Roles('EXECUTANT', 'PRESTATAIRE')
-  submit(@Param('id') id: string, @CurrentUser() user) {
-    return this.tasksService.submitForValidation(id, user);
+  @Post(':id/reject')
+  @Roles('ADMIN', 'MANAGER')
+  reject(@Param('id') id: string, @CurrentUser() user) {
+    return this.tasksService.rejectTask(id, user.userId);
   }
-
-  // APPROVE PRESTATAIRE
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Post(':id/approve-prestataire')
-  @Roles('PRESTATAIRE')
-  validatePrestataire(@Param('id') id: string, @CurrentUser() user) {
-    return this.tasksService.approveByPrestataire(id, user);
-  }
-
   // FINAL APPROVE MANAGER
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post(':id/approve-manager')

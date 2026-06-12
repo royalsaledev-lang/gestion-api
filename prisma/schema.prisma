@@ -8,31 +8,61 @@ datasource db {
 }
 
 model User {
-  id               String         @id @default(uuid())
+  id               String    @id @default(uuid())
   name             String
-  email            String         @unique
+  email            String    @unique
   phone            String?
   password         String?
   role             UserRole
-  active           Boolean        @default(true)
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
-  freelancerId     String?        @map("freelancer_id")
-  refreshToken     String?        @map("refresh_token")
-  resetToken       String?        @map("reset_token")
-  resetTokenExpiry DateTime?      @map("reset_token_expiry")
+  active           Boolean   @default(true)
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  refreshToken     String?   @map("refresh_token")
+  resetToken       String?   @map("reset_token")
+  resetTokenExpiry DateTime? @map("reset_token_expiry")
+
   activityLogs     ActivityLog[]
   comments         Comment[]
-  ownedFreelancer  Freelancer?    @relation("FreelancerOwner")
+
   notifications    Notification[]
-  managedProjects  Project[]      @relation("ProjectManager")
-  tasksAssigned    Task[]         @relation("TaskAssignee")
-  tasksCreated     Task[]         @relation("TaskCreator")
-  freelancer       Freelancer?    @relation("FreelancerMembers", fields: [freelancerId], references: [id])
+
+  managedProjects  Project[] @relation("ProjectManager")
+
+  validatedTasks Task[] @relation("TaskValidator")
+
+  tasksAssigned    Task[] @relation("TaskAssignee")
+  tasksCreated     Task[] @relation("TaskCreator")
+
+  projectParticipants ProjectParticipant[]
+
+  ownedFreelancer  Freelancer? @relation("FreelancerOwner")
 
   @@map("users")
 }
 
+
+model Freelancer {
+  id        String           @id @default(uuid())
+
+  name      String
+  email     String?
+  phone     String?
+  specialty String?
+
+  userId    String @unique
+
+  user      User   @relation("FreelancerOwner", fields: [userId], references: [id])
+
+  status    FreelancerStatus @default(ACTIVE)
+
+  projects  ProjectFreelancer[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("freelancers")
+}
 
 model Client {
   id        String       @id @default(uuid())
@@ -48,61 +78,85 @@ model Client {
 }
 
 model Project {
-  id          String              @id @default(uuid())
+  id          String @id @default(uuid())
+
   name        String
   description String?
-  status      ProjectStatus       @default(UPCOMING)
+
+  status      ProjectStatus @default(UPCOMING)
   priority    Priority
-  startDate   DateTime?           @map("start_date")
+
+  startDate   DateTime? @map("start_date")
   deadline    DateTime?
-  clientId    String?             @map("client_id")
-  managerId   String?             @map("manager_id")
-  createdAt   DateTime            @default(now()) @map("created_at")
-  payments    Payment[]
-  freelancers ProjectFreelancer[]
-  client      Client?             @relation(fields: [clientId], references: [id])
-  manager     User?               @relation("ProjectManager", fields: [managerId], references: [id])
+
+  clientId    String? @map("client_id")
+  managerId   String? @map("manager_id")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  client      Client? @relation(fields: [clientId], references: [id])
+
+  manager     User? @relation("ProjectManager", fields: [managerId], references: [id])
+
   tasks       Task[]
+
+  payments    Payment[]
+
+  freelancers ProjectFreelancer[]
+
+  participants ProjectParticipant[]
 
   @@map("projects")
 }
 
 model Task {
-  id                       String     @id @default(uuid())
-  title                    String
-  description              String?
-  status                   TaskStatus @default(DRAFT)
-  priority                 Priority
-  startDate                DateTime?  @map("start_date")
-  deadline                 DateTime?
-  projectId                String     @map("project_id")
-  createdById              String     @map("created_by_id")
-  assignedToId             String?    @map("assigned_to_id")
-  validatedByPrestataireId String?    @map("validated_by_prestataire_id")
-  validatedByManagerId     String?    @map("validated_by_manager_id")
-  createdAt                DateTime   @default(now()) @map("created_at")
-  comments                 Comment[]
-  assignedTo               User?      @relation("TaskAssignee", fields: [assignedToId], references: [id])
-  createdBy                User       @relation("TaskCreator", fields: [createdById], references: [id])
-  project                  Project    @relation(fields: [projectId], references: [id])
+  id            String     @id @default(uuid())
+
+  title         String
+  description   String?
+
+  status        TaskStatus @default(DRAFT)
+
+  priority      Priority
+
+  startDate     DateTime? @map("start_date")
+  deadline      DateTime?
+
+  projectId      String @map("project_id")
+  createdById    String @map("created_by_id")
+  assignedToId   String? @map("assigned_to_id")
+
+  validatedById  String? @map("validated_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project     Project @relation(fields:[projectId], references:[id])
+
+  createdBy   User @relation("TaskCreator", fields:[createdById], references:[id])
+
+  assignedTo  User? @relation("TaskAssignee", fields:[assignedToId], references:[id])
+
+  validatedBy User? @relation("TaskValidator", fields:[validatedById], references:[id])
+
+  comments Comment[]
 
   @@map("tasks")
 }
 
-model Freelancer {
-  id        String              @id @default(uuid())
-  name      String
-  email     String?
-  phone     String?
-  specialty String?
-  userId    String              @unique
-  status    FreelancerStatus    @default(ACTIVE)
-  createdAt DateTime            @default(now()) @map("created_at")
-  user      User                @relation("FreelancerOwner", fields: [userId], references: [id])
-  projects  ProjectFreelancer[]
-  members   User[]              @relation("FreelancerMembers")
+model ProjectParticipant {
+  id String @id @default(uuid())
 
-  @@map("freelancers")
+  projectId String @map("project_id")
+  userId    String @map("user_id")
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([projectId, userId])
+
+  @@map("project_participants")
 }
 
 model ProjectFreelancer {

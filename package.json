@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "start": "node dist/src/main.js",
+    "start:dev": "nest start --watch",
     "start:prod": "node dist/src/main.js",
     "postinstall": "prisma generate --schema=prisma/schema.prisma"
   },

@@ -24,6 +24,12 @@ export class UsersService extends BaseService {
 
   async findAll() {
     return this.prisma.user.findMany({
+      where: {
+        role: {
+          in: ['MANAGER', 'PRESTATAIRE', 'EXECUTANT'],
+        },
+      },
+
       select: {
         id: true,
         name: true,
@@ -32,8 +38,8 @@ export class UsersService extends BaseService {
         role: true,
         active: true,
         createdAt: true,
-        updatedAt: true,
       },
+
       orderBy: {
         createdAt: 'desc',
       },
@@ -47,8 +53,11 @@ export class UsersService extends BaseService {
   ) {
     const allowedRoles: Record<string, string[]> = {
       ADMIN: ['MANAGER', 'PRESTATAIRE', 'EXECUTANT'],
+
       MANAGER: ['PRESTATAIRE', 'EXECUTANT'],
-      PRESTATAIRE: ['EXECUTANT'],
+
+      PRESTATAIRE: [],
+
       EXECUTANT: [],
     };
 
@@ -58,7 +67,9 @@ export class UsersService extends BaseService {
       throw new Error(`${creatorRole} cannot create ${data.role}`);
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = data.password
+      ? await bcrypt.hash(data.password, 10)
+      : null;
 
     const user = await this.prisma.user.create({
       data: {

@@ -12,6 +12,7 @@ import { ClientsModule } from './clients/clients.module';
 import { ProjectsModule } from './projects/project.module';
 import { FreelancersModule } from './freelancers/freelancers.module';
 import { TasksModule } from './tasks/tasks.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { TasksModule } from './tasks/tasks.module';
     ProjectsModule,
     FreelancersModule,
     TasksModule,
+    DashboardModule,
     EventEmitterModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,

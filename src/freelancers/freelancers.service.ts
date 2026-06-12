@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BaseService } from '../core/base/base.service';
 
@@ -12,13 +8,11 @@ import { NotificationsService } from '../core/notifications/notifications.servic
 
 import { CreateFreelancerDto } from './dto/create-freelancer.dto';
 import { UpdateFreelancerDto } from './dto/update-freelancer.dto';
-import { AddMemberDto } from './dto/add-member.dto';
 import { ActivityActions } from 'src/core/activity/activity-actions.constant';
 import { Events } from 'src/core/events/events.constants';
 import { FreelancerStatus, UserRole } from 'generated/prisma/enums';
 import { QueryFreelancerDto } from './dto/query-freelancer.dto';
 import * as bcrypt from 'bcrypt';
-import { UpdateMemberDto } from './dto/update-member.dto';
 
 @Injectable()
 export class FreelancersService extends BaseService {
@@ -37,7 +31,6 @@ export class FreelancersService extends BaseService {
         ...(query.search && {
           name: {
             contains: query.search,
-            
           },
         }),
 
@@ -46,7 +39,7 @@ export class FreelancersService extends BaseService {
         }),
       },
       include: {
-        members: true,
+        user: true,
         projects: {
           include: {
             project: true,
@@ -93,17 +86,6 @@ export class FreelancersService extends BaseService {
         ...data,
         status: data.status ?? FreelancerStatus.ACTIVE,
         userId: user.id,
-      },
-      include: {
-        members: true,
-      },
-    });
-
-    // 3. 🔥 IMPORTANT → connecter aussi comme MEMBER
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        freelancerId: freelancer.id,
       },
     });
 
@@ -169,128 +151,6 @@ export class FreelancersService extends BaseService {
 
     return updatedFreelancer;
   }
-
-  async getMembers(freelancerId: string) {
-    return this.prisma.user.findMany({
-      where: {
-        freelancerId,
-        role: UserRole.EXECUTANT,
-        active: true, // 🔥 important
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-      },
-    });
-  }
-
-  async getMember(memberId: string, userId: string) {
-    // 🔥 1. vérifier existence
-    const prestataire = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    const member = await this.prisma.user.findUnique({
-      where: { id: memberId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        freelancerId: true,
-        active: true,
-      },
-    });
-
-    if (!member) {
-      throw new NotFoundException('Member not found');
-    }
-
-    // 🔥 blocage user inactif
-    if (!member.active) {
-      throw new ForbiddenException('Member is inactive');
-    }
-
-    // 🔥 contrôle d'accès
-    if (prestataire.role === UserRole.PRESTATAIRE) {
-      if (member.freelancerId !== prestataire.freelancerId) {
-        throw new ForbiddenException('Access denied');
-      }
-    }
-
-    // 🔥 sécurité supplémentaire (optionnelle mais forte)
-    if (prestataire.role === UserRole.EXECUTANT) {
-      if (member.id !== prestataire.id) {
-        throw new ForbiddenException('Access denied');
-      }
-    }
-
-    return member;
-  }
-
-  // ADD MEMBER (équipe prestataire)
-  async addMember(freelancerId: string, data: AddMemberDto, userId: string) {
-    const hashedPassword = await bcrypt.hash('executant123', 10);
-
-    // 🔥 1. vérifier si user existe déjà
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: data.email },
-    });
-
-    let member;
-
-    if (existingUser) {
-      // 🔥 2. sécurité métier
-      if (
-        existingUser.freelancerId &&
-        existingUser.freelancerId !== freelancerId
-      ) {
-        throw new Error(
-          'Cet utilisateur appartient déjà à un autre prestataire',
-        );
-      }
-
-      // 🔥 3. rattacher ou mettre à jour
-      member = await this.prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          name: data.name ?? existingUser.name,
-          phone: data.phone ?? existingUser.phone,
-          role: UserRole.EXECUTANT,
-          freelancerId: freelancerId,
-        },
-      });
-    } else {
-      // 🔥 4. créer nouveau user
-      member = await this.prisma.user.create({
-        data: {
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          password: hashedPassword,
-          role: UserRole.EXECUTANT,
-          freelancerId: freelancerId,
-        },
-      });
-    }
-
-    // 🔥 activité
-    await this.activity.log({
-      action: ActivityActions.FREELANCER_MEMBER_ADDED,
-      userId,
-      entityId: freelancerId,
-      entityType: 'FREELANCER',
-    });
-
-    // 🔥 event
-    this.events.emit(Events.FREELANCER_MEMBER_ADDED, member);
-
-    return member;
-  }
-
   // ASSIGN PROJECT
   async assignToProject(
     freelancerId: string,
@@ -321,7 +181,7 @@ export class FreelancersService extends BaseService {
     return this.prisma.freelancer.findUnique({
       where: { id },
       include: {
-        members: true,
+        user: true,
         projects: {
           include: {
             project: true,
@@ -335,18 +195,11 @@ export class FreelancersService extends BaseService {
     const freelancer = await this.prisma.freelancer.findUnique({
       where: { id },
       include: {
-        members: true,
         user: true,
       },
     });
 
     if (!freelancer) throw new Error('Freelancer not found');
-
-    // 🔥 1. détacher les members
-    await this.prisma.user.updateMany({
-      where: { freelancerId: id },
-      data: { freelancerId: null },
-    });
 
     // 🔥 2. supprimer relations projet
     await this.prisma.projectFreelancer.deleteMany({
@@ -375,35 +228,6 @@ export class FreelancersService extends BaseService {
     return freelancer;
   }
 
-  async removeMember(memberId: string, userId: string) {
-    // 🔥 1. vérifier existence
-    const existing = await this.prisma.user.findUnique({
-      where: { id: memberId },
-    });
-
-    if (!existing) throw new Error('Member not found');
-
-    // 🔥 2. détacher du freelancer + désactiver
-    const member = await this.prisma.user.update({
-      where: { id: memberId },
-      data: {
-        freelancerId: null,
-        active: false, // 🔥 important (soft delete)
-      },
-    });
-
-    await this.activity.log({
-      action: ActivityActions.FREELANCER_MEMBER_REMOVED,
-      userId,
-      entityId: memberId,
-      entityType: 'FREELANCER',
-    });
-
-    this.events.emit(Events.FREELANCER_MEMBER_REMOVED, member);
-
-    return member;
-  }
-
   async unassignFromProject(
     freelancerId: string,
     projectId: string,
@@ -426,27 +250,5 @@ export class FreelancersService extends BaseService {
     this.events.emit(Events.FREELANCER_UNASSIGNED, relation);
 
     return relation;
-  }
-
-  async updateMember(memberId: string, data: UpdateMemberDto, userId: string) {
-    const member = await this.prisma.user.update({
-      where: { id: memberId },
-      data: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-      },
-    });
-
-    await this.activity.log({
-      action: ActivityActions.FREELANCER_MEMBER_UPDATED,
-      userId,
-      entityId: memberId,
-      entityType: 'FREELANCER',
-    });
-
-    this.events.emit(Events.FREELANCER_MEMBER_UPDATED, member);
-
-    return member;
   }
 }

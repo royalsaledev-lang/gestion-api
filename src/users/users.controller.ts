@@ -31,6 +31,14 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  // users.controller.ts
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('me')
+  getMe(@CurrentUser() user) {
+    return this.usersService.findOne(user.userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
@@ -49,7 +57,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id')
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'MANAGER')
   update(
     @Param('id') id: string,
     @Body() data: UpdateUserDto,
@@ -63,13 +71,5 @@ export class UsersController {
   @Roles('ADMIN', 'MANAGER')
   deactivate(@Param('id') id: string, @CurrentUser() user) {
     return this.usersService.toggleUserStatus(id, user.userId);
-  }
-
-  // users.controller.ts
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Get('me')
-  getMe(@CurrentUser() user) {
-    return this.usersService.findOne(user.userId);
   }
 }

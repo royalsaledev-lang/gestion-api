@@ -25,81 +25,72 @@ export class ProjectsService extends BaseService {
   }
 
   async findAllProject(user: any, query: QueryProjectDto) {
-    // ADMIN / MANAGER → tout voir
-    if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-      return this.prisma.project.findMany({
-        where: {
-          ...(query.search && {
-            name: {
-              contains: query.search,
-              
-            },
-          }),
-
-          ...(query.status && {
-            status: query.status as any,
-          }),
+    const filters = {
+      ...(query.search && {
+        name: {
+          contains: query.search,
         },
+      }),
+
+      ...(query.status && {
+        status: query.status as any,
+      }),
+    };
+
+    // ADMIN
+    if (user.role === 'ADMIN') {
+      return this.prisma.project.findMany({
+        where: filters,
         include: {
           client: true,
           manager: true,
-          freelancers: {
+          participants: {
             include: {
-              freelancer: true,
+              user: true,
             },
           },
         },
       });
     }
 
-    // EXECUTANT / PRESTATAIRE → seulement leurs projets
+    // MANAGER
+    if (user.role === 'MANAGER') {
+      return this.prisma.project.findMany({
+        where: {
+          ...filters,
+          managerId: user.userId,
+        },
+        include: {
+          client: true,
+          manager: true,
+          participants: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+    }
+
+    // EXECUTANT + PRESTATAIRE
     return this.prisma.project.findMany({
       where: {
-        AND: [
-          {
-            OR: [
-              ...(query.search
-                ? [
-                    {
-                      name: {
-                        contains: query.search,
-                        // 
-                      },
-                    },
-                  ]
-                : []),
+        ...filters,
 
-              ...(query.status
-                ? [
-                    {
-                      status: query.status,
-                    },
-                  ]
-                : []),
-            ],
+        participants: {
+          some: {
+            userId: user.userId,
           },
-          {
-            OR: [
-              {
-                freelancers: {
-                  some: {
-                    freelancerId: user.freelancerId,
-                  },
-                },
-              },
-              {
-                managerId: user.userId,
-              },
-            ],
-          },
-        ],
+        },
       },
+
       include: {
-        client: false,
+        client: true,
         manager: true,
-        freelancers: {
+
+        participants: {
           include: {
-            freelancer: true,
+            user: true,
           },
         },
       },
@@ -109,19 +100,24 @@ export class ProjectsService extends BaseService {
   async findOne(id: string) {
     return this.prisma.project.findUnique({
       where: { id },
+
       include: {
         client: true,
+
         manager: true,
-        freelancers: {
+
+        participants: {
           include: {
-            freelancer: {
-              include: {
-                members: true,
-              },
-            },
+            user: true,
           },
         },
-        tasks: true,
+
+        tasks: {
+          include: {
+            assignedTo: true,
+            createdBy: true,
+          },
+        },
       },
     });
   }
@@ -197,11 +193,48 @@ export class ProjectsService extends BaseService {
     return project;
   }
 
-  async assignFreelancer(projectId: string, freelancerId: string) {
-    return this.prisma.projectFreelancer.create({
+  async assignParticipant(projectId: string, userId: string) {
+    const exists = await this.prisma.projectParticipant.findFirst({
+      where: {
+        projectId,
+        userId,
+      },
+    });
+
+    if (exists) {
+      return exists;
+    }
+
+    return this.prisma.projectParticipant.create({
       data: {
         projectId,
-        freelancerId,
+        userId,
+      },
+
+      include: {
+        user: true,
+        project: true,
+      },
+    });
+  }
+
+  async removeParticipant(projectId: string, userId: string) {
+    return this.prisma.projectParticipant.deleteMany({
+      where: {
+        projectId,
+        userId,
+      },
+    });
+  }
+
+  async getParticipants(projectId: string) {
+    return this.prisma.projectParticipant.findMany({
+      where: {
+        projectId,
+      },
+
+      include: {
+        user: true,
       },
     });
   }

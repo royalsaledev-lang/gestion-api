@@ -28,18 +28,6 @@ export class TasksService extends BaseService {
 
   async findAll() {
     return this.prisma.task.findMany({
-      // where: {
-      //   ...(query.search && {
-      //     name: {
-      //       contains: query.search,
-      //       
-      //     },
-      //   }),
-
-      //   ...(query.status && {
-      //     status: query.status as any,
-      //   }),
-      // },
       include: {
         assignedTo: {
           select: {
@@ -54,6 +42,10 @@ export class TasksService extends BaseService {
             name: true,
           },
         },
+      },
+
+      orderBy: {
+        createdAt: 'asc',
       },
     });
   }
@@ -157,12 +149,36 @@ export class TasksService extends BaseService {
   }
 
   async assignTask(taskId: string, userId: string, assignedBy: string) {
-    const task = await this.prisma.task.update({
-      where: { id: taskId },
+    const task = await this.prisma.task.findUnique({
+      where: {
+        id: taskId,
+      },
+    });
+
+    if (!task) {
+      throw new BadRequestException('Task not found');
+    }
+
+    const participant = await this.prisma.projectParticipant.findFirst({
+      where: {
+        projectId: task.projectId,
+        userId,
+      },
+    });
+
+    if (!participant) {
+      throw new BadRequestException('User is not participant of this project');
+    }
+
+    const updatedTask = await this.prisma.task.update({
+      where: {
+        id: taskId,
+      },
 
       data: {
         assignedToId: userId,
       },
+
       include: {
         assignedTo: {
           select: {
@@ -171,6 +187,7 @@ export class TasksService extends BaseService {
             email: true,
           },
         },
+
         project: {
           select: {
             id: true,
@@ -187,15 +204,28 @@ export class TasksService extends BaseService {
       userId: assignedBy,
     });
 
-    this.events.emit(Events.TASK_ASSIGNED, task);
+    await this.notifications.notifyUser(
+      userId,
+      'A task has been assigned to you',
+    );
 
-    const message = 'A task has been assigned to you';
-
-    await this.notifications.notifyUser(userId, message);
+    this.events.emit(Events.TASK_ASSIGNED, updatedTask);
 
     this.logger.logAction('Task assigned', 'TasksService');
 
-    return task;
+    return updatedTask;
+  }
+
+  async rejectTask(taskId: string, userId: string) {
+    return this.prisma.task.update({
+      where: {
+        id: taskId,
+      },
+      data: {
+        status: 'DRAFT',
+        validatedById: null,
+      },
+    });
   }
 
   async completeTask(taskId: string, userId: string) {
@@ -203,18 +233,18 @@ export class TasksService extends BaseService {
       where: { id: taskId },
 
       data: {
-        status: TaskStatus.COMPLETED,
+        status: TaskStatus.VALIDATION_REQUESTED,
       },
     });
 
     await this.activity.log({
-      action: ActivityActions.TASK_COMPLETED,
+      action: ActivityActions.TASK_VALIDATED_REQUESTED,
       entityType: 'TASK',
       entityId: taskId,
       userId,
     });
 
-    this.events.emit(Events.TASK_COMPLETED, task);
+    this.events.emit(Events.TASK_VALIDATED_REQUESTED, task);
 
     return task;
   }
@@ -237,130 +267,24 @@ export class TasksService extends BaseService {
     return task;
   }
 
-  async submitForValidation(taskId: string, user: any) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
-    });
-
-    if (!task) throw new Error('Task not found');
-
-    if (task.assignedToId !== user.userId) {
-      throw new Error('You are not assigned to this task');
-    }
-
-    const updated = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        status: TaskStatus.VALIDATION_REQUESTED,
-      },
-    });
-
-    await this.activity.log({
-      action: ActivityActions.TASK_SUBMITTED,
-      entityType: 'TASK',
-      entityId: taskId,
-      userId: user.userId,
-    });
-
-    const project = await this.prisma.project.findUnique({
-      where: { id: task.projectId },
-    });
-
-    // 🔥 PRESTATAIRE → direct manager
-    if (user.role === 'PRESTATAIRE') {
-      if (project?.managerId) {
-        await this.notifications.notifyUser(
-          project.managerId,
-          'Task ready for final validation',
-        );
-      }
-    }
-
-    // 🔥 EXECUTANT → doit passer par prestataire (ou fallback manager)
-    if (user.role === 'EXECUTANT') {
-      if (project?.managerId) {
-        await this.notifications.notifyUser(
-          project.managerId,
-          'Task submitted - awaiting prestataire validation',
-        );
-      }
-    }
-
-    this.events.emit(Events.TASK_UPDATED, updated);
-
-    return updated;
-  }
-
-  async approveByPrestataire(taskId: string, user: any) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
-    });
-
-    if (!task) throw new Error('Task not found');
-
-    if (user.role !== 'PRESTATAIRE') {
-      throw new Error('Only prestataire can validate');
-    }
-
-    if (task.status !== TaskStatus.VALIDATION_REQUESTED) {
-      throw new Error('Task not ready for prestataire validation');
-    }
-
-    const updated = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        validatedByPrestataireId: user.userId,
-        status: TaskStatus.APPROVED,
-      },
-    });
-
-    await this.activity.log({
-      action: ActivityActions.TASK_VALIDATED_PRESTATAIRE,
-      entityType: 'TASK',
-      entityId: taskId,
-      userId: user.userId,
-    });
-
-    // 🔥 notifier manager
-    const project = await this.prisma.project.findUnique({
-      where: { id: task.projectId },
-    });
-
-    if (project?.managerId) {
-      await this.notifications.notifyUser(
-        project.managerId,
-        'Task validated by prestataire - ready for final approval',
-      );
-    }
-
-    this.events.emit(Events.TASK_UPDATED, updated);
-
-    return updated;
-  }
-
   async finalApprove(taskId: string, user: any) {
     const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+      where: {
+        id: taskId,
+      },
     });
 
-    if (!task) throw new Error('Task not found');
-
-    if (user.role !== 'MANAGER' && user.role !== 'ADMIN') {
-      throw new Error('Only manager/admin can validate');
-    }
-
-    // 🔥 sécurité workflow
-    if (
-      task.status !== TaskStatus.APPROVED &&
-      task.status !== TaskStatus.VALIDATION_REQUESTED
-    ) {
-      throw new Error('Task not ready for final validation');
+    if (!task) {
+      throw new Error('Task not found');
     }
 
     const updated = await this.prisma.task.update({
-      where: { id: taskId },
+      where: {
+        id: taskId,
+      },
+
       data: {
-        validatedByManagerId: user.userId,
+        validatedById: user.userId,
         status: TaskStatus.COMPLETED,
       },
     });
@@ -371,8 +295,6 @@ export class TasksService extends BaseService {
       entityId: taskId,
       userId: user.userId,
     });
-
-    this.events.emit(Events.TASK_COMPLETED, updated);
 
     return updated;
   }
